@@ -20,7 +20,7 @@ La solución está pensada para escalar a millones de movimientos sin compromete
 
 ## 🐳 Despliegue de la Base de Datos (Docker / Codespaces)
 
-Si no dispones de SQL Server instalado de forma nativa, el proyecto incluye un archivo `docker-compose.yml` para levantar una instancia de desarrollo gratuita al instante.
+Si no dispones de SQL Server instalado de forma nativa, el proyecto incluye un archivo `compose.yml` para levantar una instancia de desarrollo gratuita al instante.
 
 1. Inicia el contenedor en segundo plano:
    ```bash

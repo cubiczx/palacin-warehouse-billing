@@ -1,0 +1,45 @@
+## ---------- .NET / Visual Studio ----------
+bin/
+obj/
+out/
+
+# Archivos de usuario/IDE
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/*
+!.vscode/extensions.json
+
+# Resultados de test y cobertura
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# Paquetes NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+## ---------- Configuración sensible ----------
+# Ignoramos el appsettings real (contiene la cadena de conexión)
+# y dejamos versionado solo un ejemplo de plantilla
+WarehouseBilling/appsettings.json
+WarehouseBilling/appsettings.*.json
+!WarehouseBilling/appsettings.Example.json
+
+# Variables de entorno locales (por si añades .env para Docker)
+.env
+.env.local
+
+## ---------- Docker / SQL Server ----------
+# Datos persistentes del volumen si alguna vez se montan como bind mount local
+mssql_data/
+*.mdf
+*.ldf
+
+## ---------- Sistema operativo ----------
+.DS_Store
+Thumbs.db

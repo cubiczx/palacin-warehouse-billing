@@ -29,18 +29,18 @@ public class BillingEngine
         ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'Almacen' en appsettings.json");
 
         Console.WriteLine("1. Importar Excel | 2. Calcular Facturación");
-        var opcion = Console.ReadLine();
+        var opcion = Console.ReadLine()?.Trim();
 
         if (opcion == "1") 
         {
             ImportarExcel(connectionString, "Movimientos.xlsx"); 
         } 
-        else 
+        else if (opcion == "2")
         {
             using var conn = new SqlConnection(connectionString);
             conn.Open();
 
-            // 1. Mostrar clientes disponibles en la BD
+            // 1. Mostrar clientes disponibles en la BD de forma más clara
             List<string> clientesDisponibles = new List<string>();
             using (var cmd = new SqlCommand("SELECT CodCliente, Nombre FROM Clientes", conn))
             using (var rdr = cmd.ExecuteReader())
@@ -51,7 +51,7 @@ public class BillingEngine
                     string c = rdr.GetString(0);
                     string n = rdr.GetString(1);
                     clientesDisponibles.Add(c);
-                    Console.WriteLine($"- [{c}] {n}");
+                    Console.WriteLine($"- Código: [{c}]  Nombre: {n}");
                 }
             }
 
@@ -62,12 +62,12 @@ public class BillingEngine
             }
 
             // 2. Pedir y validar código de cliente
-            Console.Write("\nIntroduce código de cliente: ");
+            Console.Write("\nIntroduce el código del cliente (indique el valor entre corchetes, ej. C1): ");
             string codCliente = Console.ReadLine()?.ToUpper().Trim() ?? "";
 
             if (!clientesDisponibles.Contains(codCliente))
             {
-                Console.WriteLine($"Error: El cliente '{codCliente}' no existe en el sistema.");
+                Console.WriteLine($"Error: El código '{codCliente}' no existe en el sistema.");
                 return;
             }
 
@@ -100,20 +100,24 @@ public class BillingEngine
                 return;
             }
 
-            Console.Write($"Introduce el mes (entre 1 y 12): ");
+            Console.Write("Introduce el mes (1-12): ");
             if (!int.TryParse(Console.ReadLine(), out int month) || month < 1 || month > 12)
             {
-                Console.WriteLine("Error: El mes introducido no es válido (debe estar entre 1 y 12).");
+                Console.WriteLine("Error: El mes debe estar comprendido entre 1 y 12.");
                 return;
             }
 
-            CalcularFacturacion(connectionString, codCliente, year, month);
+            CalcularFacturacion(connectionString, codCliente, year, month); 
+        }
+        else
+        {
+            Console.WriteLine("Error: Opción no válida. Debe introducir '1' para importar o '2' para calcular.");
         }
     }
 
     private static void ImportarExcel(string connString, string filePath) 
     {
-        DataTable dt = new DataTable();
+        DataTable dt = new();
         dt.Columns.Add("CodCliente", typeof(string));
         dt.Columns.Add("Estanteria", typeof(string));
         dt.Columns.Add("Cd", typeof(int));
@@ -143,8 +147,8 @@ public class BillingEngine
         while (reader.Read())
         {
             // Posiciones en el Excel: CodCliente(0), Estanteria(4), Cd(5), Fecha(6)
-            string codCliente = reader.GetValue(0)?.ToString();
-            string estanteria = reader.GetValue(4)?.ToString();
+            string codCliente = reader.GetValue(0)?.ToString() ?? string.Empty;
+            string estanteria = reader.GetValue(4)?.ToString() ?? string.Empty;
             
             if (string.IsNullOrEmpty(codCliente) || string.IsNullOrEmpty(estanteria)) 
                 continue;
@@ -160,7 +164,12 @@ public class BillingEngine
             } 
             else 
             {
-                fecha = DateTime.ParseExact(fechaCelda.ToString().Trim(), "M/d/yyyy", CultureInfo.InvariantCulture);
+                string fechaStr = fechaCelda?.ToString() ?? string.Empty;
+                
+                if (string.IsNullOrWhiteSpace(fechaStr))
+                    continue; // Si la celda de fecha está vacía, descartamos la fila
+
+                fecha = DateTime.ParseExact(fechaStr.Trim(), "M/d/yyyy", CultureInfo.InvariantCulture);
             }
 
             dt.Rows.Add(codCliente, estanteria, cd, fecha);

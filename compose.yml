@@ -1,0 +1,17 @@
+services:
+  sqlserver:
+    build: .
+    container_name: sqlserver_dev
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Developer
+      - SA_PASSWORD=SuperSecretDevPass123!
+      - MSSQL_SA_PASSWORD=SuperSecretDevPass123!
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+volumes:
+  sqlserver_data:

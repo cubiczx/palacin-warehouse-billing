@@ -62,6 +62,7 @@ Si usas otro host, usuario o contraseña de SQL Server, edita esos valores en tu
 1. Instala los paquetes NuGet requeridos si no están registrados en el proyecto:
 
    ```bash
+   cd WarehouseBilling
    dotnet add package Microsoft.Data.SqlClient
    dotnet add package ExcelDataReader
    dotnet add package ExcelDataReader.DataSet

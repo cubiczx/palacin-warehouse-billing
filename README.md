@@ -85,3 +85,8 @@ Si usas otro host, usuario o contraseña de SQL Server, edita esos valores en tu
 
 - **Opción 1**: Crear la estructura de la base de datos, importar el Excel de forma masiva y poblar los datos. (Asegúrate de colocar el archivo .xlsx en la raíz del proyecto).
 - **Opción 2**: Ejecutar el cálculo de facturación mensual, mostrando el desglose día por día y el importe total.
+
+## 🚀 Decisiones de Arquitectura y Rendimiento
+
+1. **Ingesta de datos O(1) en Memoria y Resiliencia ante Ficheros Acumulativos:** 
+   Se utiliza `ExcelDataReader` para leer el archivo `.xlsx` como un flujo (*Stream*) en memoria y volcarlo a la base de datos mediante lotes con `SqlBulkCopy`. Dado que el caso de uso asume ficheros de importación acumulativos ("foto completa" histórica que incluye meses anteriores más nuevos meses futuros como agosto o septiembre), la aplicación ejecuta un `TRUNCATE TABLE` previo para evitar duplicidades masivas. *(Nota: Si el flujo fuera puramente incremental de ficheros independientes, bastaría con omitir el vaciado y aplicar únicamente el `SqlBulkCopy` en modo aditivo).*

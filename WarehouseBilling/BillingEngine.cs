@@ -21,19 +21,27 @@ public class BillingEngine
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
         var config = new ConfigurationBuilder()
-        .SetBasePath(AppContext.BaseDirectory)
-        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-        .Build();
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
 
         string connectionString = config.GetConnectionString("Almacen")
-        ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'Almacen' en appsettings.json");
+            ?? throw new InvalidOperationException("No se encontró la cadena de conexión 'Almacen' en appsettings.json");
+
+        // Resolución de la ruta del Excel:
+        // 1. Prioridad: Argumento de consola (ej: dotnet run "C:/Datos/Movimientos_Agosto.xlsx")
+        // 2. Segunda opción: Configuración definida en appsettings.json
+        // 3. Valor por defecto: "Movimientos.xlsx"
+        string excelFilePath = args.Length > 0 
+            ? args[0] 
+            : config["ExcelFilePath"] ?? "Movimientos.xlsx";
 
         Console.WriteLine("1. Importar Excel | 2. Calcular Facturación");
         var opcion = Console.ReadLine()?.Trim();
 
         if (opcion == "1") 
         {
-            ImportarExcel(connectionString, "Movimientos.xlsx"); 
+            ImportarExcel(connectionString, excelFilePath); 
         } 
         else if (opcion == "2")
         {
@@ -117,14 +125,34 @@ public class BillingEngine
 
     private static void ImportarExcel(string connString, string filePath) 
     {
+        // =========================================================================================
+        // ESCENARIO B (Implementado): El Excel recibido es un fichero acumulativo ("foto completa" histórica).
+        // Contiene tanto los meses anteriores ya procesados (ej. meses 1 a 7) como nuevos meses futuros 
+        // (ej. agosto, septiembre). 
+        // Para evitar duplicidades de datos y desincronización en los cálculos de saldo de estanterías,
+        // aplicamos un vaciado completo de la tabla Movimientos (TRUNCATE) antes de verter los nuevos datos 
+        // mediante SqlBulkCopy.
+        // 
+        // *Nota alternativa (Escenario A - Ficheros incrementales):* Si el proveedor enviase ficheros separados 
+        // y puramente incrementales (aportando solo los datos del nuevo mes sin repetir el histórico), no se 
+        // requeriría el TRUNCATE previo. En ese caso, bastaría con utilizar exclusivamente el SqlBulkCopy 
+        // para realizar una inserción masiva aditiva (append) de forma directa.
+        // =========================================================================================
+
+        using var conn = new SqlConnection(connString);
+        conn.Open();
+
+        Console.WriteLine($"[Info] Vaciando tabla 'Movimientos' para procesar el archivo acumulativo: {filePath}...");
+        using (var cmdClear = new SqlCommand("TRUNCATE TABLE Movimientos", conn))
+        {
+            cmdClear.ExecuteNonQuery();
+        }
+
         DataTable dt = new();
         dt.Columns.Add("CodCliente", typeof(string));
         dt.Columns.Add("Estanteria", typeof(string));
         dt.Columns.Add("Cd", typeof(int));
         dt.Columns.Add("Fecha", typeof(DateTime));
-
-        using var conn = new SqlConnection(connString);
-        conn.Open();
 
         using var bulkCopy = new SqlBulkCopy(conn);
         bulkCopy.DestinationTableName = "Movimientos";
@@ -135,7 +163,13 @@ public class BillingEngine
         bulkCopy.ColumnMappings.Add("Cd", "Cd");
         bulkCopy.ColumnMappings.Add("Fecha", "Fecha");
 
-        Console.WriteLine("Leyendo archivo Excel y exportando a la base de datos...");
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine($"Error crítico: No se encuentra el archivo Excel en la ruta especificada: '{filePath}'.");
+            return;
+        }
+
+        Console.WriteLine("Leyendo archivo Excel y exportando movimientos a la base de datos...");
 
         using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
         using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -155,7 +189,7 @@ public class BillingEngine
 
             int cd = Convert.ToInt32(reader.GetValue(5));
             
-            // Tratamiento robusto para la fecha (soporta objetos Date nativos de Excel y textos en formato estadounidense MM/dd/yyyy)
+            // Tratamiento robusto para la fecha
             DateTime fecha;
             var fechaCelda = reader.GetValue(6);
             if (fechaCelda is DateTime dtExcel) 
@@ -167,7 +201,7 @@ public class BillingEngine
                 string fechaStr = fechaCelda?.ToString() ?? string.Empty;
                 
                 if (string.IsNullOrWhiteSpace(fechaStr))
-                    continue; // Si la celda de fecha está vacía, descartamos la fila
+                    continue;
 
                 fecha = DateTime.ParseExact(fechaStr.Trim(), "M/d/yyyy", CultureInfo.InvariantCulture);
             }
@@ -189,7 +223,7 @@ public class BillingEngine
             bulkCopy.WriteToServer(dt);
         }
         
-        Console.WriteLine($"Importación masiva completada con éxito. Total registros: {rowCount}");
+        Console.WriteLine($"Importación masiva completada con éxito. Total registros insertados: {rowCount}");
     }
 
     private static void CalcularFacturacion(string connString, string codCliente, int year, int month) 
@@ -218,7 +252,7 @@ public class BillingEngine
             }
             else
             {
-                Console.WriteLine($"Error: El cliente '{codCliente}' no existe en la tabla Maestra.");
+                Console.WriteLine($"Error: El cliente '{codCliente}' no existe en la tabla Maestra de Clientes.");
                 return;
             }
         }

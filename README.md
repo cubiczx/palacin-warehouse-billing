@@ -14,9 +14,10 @@ Para ejecutar este proyecto, es necesario contar con el siguiente software:
 
 La solución está pensada para escalar a millones de movimientos sin comprometer la memoria RAM ni el procesador:
 
-1.  **Ingesta de datos O(1) en Memoria:** Se utiliza `ExcelDataReader` para leer el archivo `.xlsx` como un flujo (Stream) en lugar de cargarlo por completo en el árbol de objetos. La inserción a la base de datos se realiza en lotes (*batching*) mediante `SqlBulkCopy`, vaciando la memoria periódicamente.
-2.  **Cálculo Histórico Delegado:** Para calcular el estado de las estanterías en un mes concreto, no se traen todos los millones de registros históricos a la aplicación. Se delega la suma matemática a SQL Server aprovechando un **Índice Agrupado (Clustered Index)** por Cliente y Fecha, recuperando únicamente el saldo inicial necesario.
-3.  **Simulación en Memoria:** Solo se descargan a C# los movimientos específicos del mes a calcular, resolviendo la facturación diaria con diccionarios de alta velocidad.
+1. **Ingesta de datos O(1) en Memoria:** Se utiliza `ExcelDataReader` para leer el archivo `.xlsx` como un flujo (*Stream*) en lugar de cargarlo por completo en el árbol de objetos. La inserción a la base de datos se realiza en lotes (*batching*) mediante `SqlBulkCopy`, vaciando la memoria periódicamente.
+2. **Cálculo Histórico Delegado:** Para calcular el estado de las estanterías en un mes concreto, no se traen todos los millones de registros históricos a la aplicación. Se delega la suma matemática a SQL Server aprovechando un **Índice Agrupado (Clustered Index)** por Cliente y Fecha, recuperando únicamente el saldo inicial necesario.
+3. **Simulación en Memoria:** Solo se descargan a C# los movimientos específicos del mes a calcular, resolviendo la facturación diaria con diccionarios de alta velocidad.
+4. **Resiliencia ante Ficheros Acumulativos:** Dado que el caso de uso asume ficheros de importación acumulativos ("foto completa" histórica que incluye meses anteriores más nuevos meses futuros como agosto o septiembre), la aplicación ejecuta un `TRUNCATE TABLE` previo a la carga masiva mediante `SqlBulkCopy` para evitar duplicidades masivas. *(Nota: Si el flujo fuera puramente incremental de ficheros independientes, bastaría con omitir el vaciado y aplicar únicamente el `SqlBulkCopy` en modo aditivo).*
 
 ## 🐳 Despliegue de la Base de Datos (Docker / Codespaces)
 
@@ -85,8 +86,3 @@ Si usas otro host, usuario o contraseña de SQL Server, edita esos valores en tu
 
 - **Opción 1**: Crear la estructura de la base de datos, importar el Excel de forma masiva y poblar los datos. (Asegúrate de colocar el archivo .xlsx en la raíz del proyecto).
 - **Opción 2**: Ejecutar el cálculo de facturación mensual, mostrando el desglose día por día y el importe total.
-
-## 🚀 Decisiones de Arquitectura y Rendimiento
-
-1. **Ingesta de datos O(1) en Memoria y Resiliencia ante Ficheros Acumulativos:** 
-   Se utiliza `ExcelDataReader` para leer el archivo `.xlsx` como un flujo (*Stream*) en memoria y volcarlo a la base de datos mediante lotes con `SqlBulkCopy`. Dado que el caso de uso asume ficheros de importación acumulativos ("foto completa" histórica que incluye meses anteriores más nuevos meses futuros como agosto o septiembre), la aplicación ejecuta un `TRUNCATE TABLE` previo para evitar duplicidades masivas. *(Nota: Si el flujo fuera puramente incremental de ficheros independientes, bastaría con omitir el vaciado y aplicar únicamente el `SqlBulkCopy` en modo aditivo).*

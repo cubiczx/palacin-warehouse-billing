@@ -37,17 +37,77 @@ public class BillingEngine
         } 
         else 
         {
-            // Consultamos por código de cliente; el nombre y tarifa se extraen automáticamente de la BD
-            Console.Write("Introduce código de cliente (ej. C1 o C2): ");
-            string codCliente = Console.ReadLine()?.ToUpper() ?? "C1";
+            using var conn = new SqlConnection(connectionString);
+            conn.Open();
 
-            Console.Write("Introduce el año (ej. 2025): ");
-            int year = int.Parse(Console.ReadLine() ?? "2025");
+            // 1. Mostrar clientes disponibles en la BD
+            List<string> clientesDisponibles = new List<string>();
+            using (var cmd = new SqlCommand("SELECT CodCliente, Nombre FROM Clientes", conn))
+            using (var rdr = cmd.ExecuteReader())
+            {
+                Console.WriteLine("\n--- Clientes Registrados ---");
+                while (rdr.Read())
+                {
+                    string c = rdr.GetString(0);
+                    string n = rdr.GetString(1);
+                    clientesDisponibles.Add(c);
+                    Console.WriteLine($"- [{c}] {n}");
+                }
+            }
 
-            Console.Write("Introduce el mes (1-12): ");
-            int month = int.Parse(Console.ReadLine() ?? "3");
+            if (clientesDisponibles.Count == 0)
+            {
+                Console.WriteLine("No hay clientes registrados. Por favor, importe un archivo Excel primero (Opción 1).");
+                return;
+            }
 
-            CalcularFacturacion(connectionString, codCliente, year, month); 
+            // 2. Pedir y validar código de cliente
+            Console.Write("\nIntroduce código de cliente: ");
+            string codCliente = Console.ReadLine()?.ToUpper().Trim() ?? "";
+
+            if (!clientesDisponibles.Contains(codCliente))
+            {
+                Console.WriteLine($"Error: El cliente '{codCliente}' no existe en el sistema.");
+                return;
+            }
+
+            // 3. Consultar el rango real de años disponibles en los movimientos del cliente
+            int minYear = 0;
+            int maxYear = 0;
+            
+            using (var cmdYear = new SqlCommand("SELECT MIN(YEAR(Fecha)), MAX(YEAR(Fecha)) FROM Movimientos WHERE CodCliente = @Cliente", conn))
+            {
+                cmdYear.Parameters.AddWithValue("@Cliente", codCliente);
+                using var rdrYear = cmdYear.ExecuteReader();
+                if (rdrYear.Read() && !rdrYear.IsDBNull(0))
+                {
+                    minYear = rdrYear.GetInt32(0);
+                    maxYear = rdrYear.GetInt32(1);
+                    Console.WriteLine($"[Info] Rango de años con movimientos para este cliente: {minYear} - {maxYear}.");
+                }
+                else
+                {
+                    Console.WriteLine("[Aviso] Este cliente no tiene movimientos registrados en la base de datos.");
+                    return;
+                }
+            }
+
+            // 4. Pedir año y validar estrictamente contra el rango devuelto por la base de datos
+            Console.Write($"Introduce el año (entre {minYear} y {maxYear}): ");
+            if (!int.TryParse(Console.ReadLine(), out int year) || year < minYear || year > maxYear)
+            {
+                Console.WriteLine($"Error: El año introducido no es válido o está fuera del rango disponible ({minYear}-{maxYear}).");
+                return;
+            }
+
+            Console.Write($"Introduce el mes (entre 1 y 12): ");
+            if (!int.TryParse(Console.ReadLine(), out int month) || month < 1 || month > 12)
+            {
+                Console.WriteLine("Error: El mes introducido no es válido (debe estar entre 1 y 12).");
+                return;
+            }
+
+            CalcularFacturacion(connectionString, codCliente, year, month);
         }
     }
 

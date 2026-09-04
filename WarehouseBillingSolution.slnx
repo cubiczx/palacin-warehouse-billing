@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="WarehouseBilling.Tests/WarehouseBilling.Tests.csproj" />
+  <Project Path="WarehouseBilling/WarehouseBilling.csproj" />
+</Solution>

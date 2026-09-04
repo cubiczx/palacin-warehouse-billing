@@ -235,7 +235,6 @@ public class BillingEngine
         using var conn = new SqlConnection(connString);
         conn.Open();
 
-        // 1. Obtener la información maestra del cliente (Nombre y Tarifa)
         string sqlCliente = "SELECT Nombre, Tarifa FROM Clientes WHERE CodCliente = @Cliente";
         using var cmdCliente = new SqlCommand(sqlCliente, conn);
         cmdCliente.Parameters.AddWithValue("@Cliente", codCliente);
@@ -260,7 +259,7 @@ public class BillingEngine
         Console.WriteLine($"\nFACTURACIÓN PARA: {nombreCliente} ({codCliente}) - TARIFA: {tarifa:C2}/día");
         Console.WriteLine(new string('=', 60));
 
-        // 2. Saldo Inicial: Inventario acumulado previo a la fecha de inicio
+        // 2. Saldo Inicial
         string sqlSaldos = @"
             SELECT Estanteria, SUM(Cd) as Saldo
             FROM Movimientos
@@ -281,7 +280,7 @@ public class BillingEngine
             }
         }
 
-        // 3. Movimientos del mes consultado
+        // 3. Movimientos del mes
         string sqlMes = @"
             SELECT CAST(Fecha AS DATE) as FechaDia, Estanteria, SUM(Cd) as Cambio
             FROM Movimientos
@@ -306,8 +305,30 @@ public class BillingEngine
             }
         }
 
-        // 4. Procesamiento diario
+        // 4. Delegar al método puro de cálculo
+        decimal totalMes = CalcularTotalMesEnMemoria(year, month, tarifa, saldoEstanterias, movimientosMes, (dia, estanterias, t, subtotal) => {
+            Console.WriteLine($"{dia:dd/MM/yyyy}: {estanterias,3} estanterías ocupadas x {t:C2} = {subtotal:C2}");
+        });
+
+        Console.WriteLine(new string('-', 60));
+        Console.WriteLine($"TOTAL FACTURACIÓN DEL MES: {totalMes:C2}\n");
+    }
+
+    /// <summary>
+    /// Método puramente en memoria que calcula la facturación mensual. 
+    /// Ideal para pruebas unitarias sin dependencias de base de datos.
+    /// </summary>
+    public static decimal CalcularTotalMesEnMemoria(
+        int year, 
+        int month, 
+        decimal tarifa, 
+        Dictionary<string, int> saldoEstanterias, 
+        Dictionary<DateTime, List<(string Estanteria, int Cambio)>> movimientosMes,
+        Action<DateTime, int, decimal, decimal>? onDayCalculated = null)
+    {
+        int daysInMonth = DateTime.DaysInMonth(year, month);
         decimal totalMes = 0;
+
         for (int i = 1; i <= daysInMonth; i++) 
         {
             DateTime diaActual = new DateTime(year, month, i);
@@ -318,9 +339,9 @@ public class BillingEngine
                 {
                     if (!saldoEstanterias.ContainsKey(mov.Estanteria)) 
                         saldoEstanterias[mov.Estanteria] = 0;
-                    
+                
                     saldoEstanterias[mov.Estanteria] += mov.Cambio;
-                    
+                
                     if (saldoEstanterias[mov.Estanteria] <= 0) 
                         saldoEstanterias.Remove(mov.Estanteria);
                 }
@@ -330,10 +351,9 @@ public class BillingEngine
             decimal facturacionDia = estanteriasOcupadas * tarifa;
             totalMes += facturacionDia;
 
-            Console.WriteLine($"{diaActual:dd/MM/yyyy}: {estanteriasOcupadas,3} estanterías ocupadas x {tarifa:C2} = {facturacionDia:C2}");
+            onDayCalculated?.Invoke(diaActual, estanteriasOcupadas, tarifa, facturacionDia);
         }
 
-        Console.WriteLine(new string('-', 60));
-        Console.WriteLine($"TOTAL FACTURACIÓN DEL MES: {totalMes:C2}\n");
+        return totalMes;
     }
 }

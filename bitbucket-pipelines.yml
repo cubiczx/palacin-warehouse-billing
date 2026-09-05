@@ -1,0 +1,30 @@
+image: mcr.microsoft.com/dotnet/sdk:10.0
+
+pipelines:
+  default:
+    - parallel:
+        - step:
+            name: Build, Test & Package
+            caches:
+              - dotnetcore
+            script:
+              - dotnet restore
+              - dotnet build --configuration Release --no-restore
+              - dotnet test --configuration Release --no-build --verbosity normal
+              - dotnet publish WarehouseBilling/WarehouseBilling.csproj --configuration Release --output ./publish --no-build
+            artifacts:
+              - publish/**
+
+  branches:
+    main:
+      - step:
+          name: Build and Deploy to Production
+          caches:
+            - dotnetcore
+          script:
+            - dotnet restore
+            - dotnet build --configuration Release --no-restore
+            - dotnet test --configuration Release --no-build --verbosity normal
+            - dotnet publish WarehouseBilling/WarehouseBilling.csproj --configuration Release --output ./publish --no-build
+            - echo "Desplegando artefacto a producción..."
+            # Aquí pondrías los comandos de despliegue reales (SSH, AWS CLI, SCP, etc.)

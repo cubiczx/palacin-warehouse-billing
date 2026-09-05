@@ -7,6 +7,7 @@ Solución para el cálculo de facturación diaria de clientes basada en el inven
 Para ejecutar este proyecto, es necesario contar con el siguiente software:
 
 *   **.NET SDK:** Versión **10.0**. El código utiliza características modernas de C# como *Top-level statements* y *using* declarations implícitos.
+*   **.NET Packages:** `ExcelDataReader`, `ExcelDataReader.DataSet`, `Microsoft.Data.SqlClient`, `System.Text.Encoding.CodePages` y `Microsoft.Extensions.Configuration.*`.
 *   **Base de Datos:** **SQL Server 2017 o superior** (El entorno Docker proporcionado utiliza la versión 2022/2025 Developer Edition).
 *   **IDE (Opcional):** Visual Studio Code (con la extensión *C# Dev Kit* y *SQL Server*) o directamente mediante GitHub Codespaces.
 

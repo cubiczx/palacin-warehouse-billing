@@ -1,0 +1,8 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+# Instalar dependencias necesarias para AWS CLI y Docker client
+RUN apt-get update && apt-get install -y curl unzip git && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip ./aws

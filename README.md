@@ -99,6 +99,12 @@ Para lanzar las pruebas, ejecuta el siguiente comando desde la raíz del reposit
    dotnet test
    ```
 
+## 🔄 CI/CD y Despliegue en AWS ECR
+El repositorio está completamente preparado y automatizado para integración y despliegue continuo (CI/CD), soportando de forma nativa tanto **GitHub Actions** como **Bitbucket Pipelines**.
+
+- **Fase de Integración (CI)**: En cada *push* o *pull request*, las pipelines restauran dependencias, compilan la solución en modo `Release` y ejecutan automáticamente la suite de pruebas unitarias en memoria mediante `dotnet test`.
+- **Fase de Despliegue (CD) hacia AWS ECR**: Tras verificar que los tests pasan con éxito en la rama principal (`main`/`master`), los pipelines construyen la imagen Docker de la aplicación utilizando el `Dockerfile` del proyecto y la despliegan de forma automatizada en **Amazon Elastic Container Registry (AWS ECR)**, quedando lista para su orquestación en plataformas de contenedores como AWS ECS, EKS o AWS App Runner.
+
 ## 🚀 Decisiones de Arquitectura y Rendimiento
 
 1. **Ingesta de datos O(1) en Memoria y Resiliencia ante Ficheros Acumulativos:** 

@@ -1,4 +1,4 @@
-name: .NET CI/CD Pipeline
+name: .NET CI/CD to AWS ECR
 
 on:
   push:
@@ -7,7 +7,8 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-test-deploy:
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
@@ -28,16 +29,35 @@ jobs:
     - name: Run Unit Tests
       run: dotnet test --configuration Release --no-build --verbosity normal
 
-    - name: Publish Application
-      run: dotnet publish WarehouseBilling/WarehouseBilling.csproj --configuration Release --output ./publish --no-build
+  deploy-to-aws-ecr:
+    name: Deploy to AWS ECR
+    needs: build-and-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
 
-    - name: Upload Artifact (CD Ready)
-      uses: actions/upload-artifact@v4
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        name: warehouse-billing-artifact
-        path: ./publish/
-        
-    # Opcional: Aquí puedes añadir los pasos de despliegue real a tu servidor, 
-    # Docker Hub, AWS ECS, Azure App Service, etc., usando secretos del repositorio.
-    # - name: Deploy to Production
-    #   run: echo "Desplegando aplicación..."
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }} # Ejemplo: eu-west-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push Docker image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ secrets.AWS_ECR_REPOSITORY_NAME }}
+        IMAGE_TAG: latest
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        # Opcional: Si quieres etiquetar también con el commit SHA para trazabilidad
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}

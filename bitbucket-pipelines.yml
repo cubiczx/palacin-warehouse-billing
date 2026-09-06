@@ -1,30 +1,36 @@
-image: mcr.microsoft.com/dotnet/sdk:10.0
+image: tu-usuario/dotnet10-aws-ci:latest
 
 pipelines:
   default:
-    - parallel:
-        - step:
-            name: Build, Test & Package
-            caches:
-              - dotnetcore
-            script:
-              - dotnet restore
-              - dotnet build --configuration Release --no-restore
-              - dotnet test --configuration Release --no-build --verbosity normal
-              - dotnet publish WarehouseBilling/WarehouseBilling.csproj --configuration Release --output ./publish --no-build
-            artifacts:
-              - publish/**
+    - step:
+        name: Build & Unit Tests
+        caches:
+          - dotnetcore
+        script:
+          - dotnet restore
+          - dotnet build --configuration Release --no-restore
+          - dotnet test --configuration Release --no-build --verbosity normal
 
   branches:
     main:
       - step:
-          name: Build and Deploy to Production
+          name: Build, Test & Deploy to AWS ECR
+          services:
+            - docker
           caches:
             - dotnetcore
           script:
+            # 1. Compilar y pasar tests
             - dotnet restore
             - dotnet build --configuration Release --no-restore
             - dotnet test --configuration Release --no-build --verbosity normal
-            - dotnet publish WarehouseBilling/WarehouseBilling.csproj --configuration Release --output ./publish --no-build
-            - echo "Desplegando artefacto a producción..."
-            # Aquí pondrías los comandos de despliegue reales (SSH, AWS CLI, SCP, etc.)
+
+            # 2. Autenticarse en AWS ECR (la imagen personalizada ya incluye la AWS CLI)
+            - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+            # 3. Construir y subir la imagen Docker
+            - IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$AWS_ECR_REPOSITORY_NAME
+            - docker build -t $IMAGE_URI:latest .
+            - docker push $IMAGE_URI:latest
+            - docker tag $IMAGE_URI:latest $IMAGE_URI:$BITBUCKET_COMMIT
+            - docker push $IMAGE_URI:$BITBUCKET_COMMIT

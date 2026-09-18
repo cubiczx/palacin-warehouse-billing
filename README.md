@@ -1,5 +1,7 @@
 # Prueba Técnica - Facturación de Almacén
 
+[Documento de la Prueba Técnica de Nereid](Nereid%20Technical%20Challenge%20document.pdf)
+
 Solución para el cálculo de facturación diaria de clientes basada en el inventario de estanterías ocupadas, diseñada para procesar y consultar millones de registros de forma óptima.
 
 ## ⚙️ Requisitos Técnicos
